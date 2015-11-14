@@ -88,7 +88,7 @@ func getClientChatrooms(clientID int) []int {
 func sendMessageToChatroom(roomID int, clientName string, message string) {
 	_, ok := Rooms[roomID]
 	if ok {
-		messageToSend:= "CHAT:" + strconv.Itoa(roomID) + "CLIENT_NAME:" + clientName + "MESSAGE:" + message
+		messageToSend:= "CHAT:" + strconv.Itoa(roomID) + "\nCLIENT_NAME:" + clientName + "\nMESSAGE:" + message +"\n\n"
 		for key, _ := range Rooms[roomID].Clients {
 			fmt.Fprintf(Clients[key].Conn, messageToSend)
 		}
@@ -97,25 +97,24 @@ func sendMessageToChatroom(roomID int, clientName string, message string) {
 	}
 }
 
-func handleClient(message string, conn net.Conn) {
+func handleClient(message string, conn net.Conn, connReader *bufio.Reader) {
 	if strings.HasPrefix(message, "JOIN_CHATROOM:") {
-		handleJoinRoom(message, conn)
+		handleJoinRoom(message, conn, connReader)
 	} else if strings.HasPrefix(message, "LEAVE_CHATROOM:") {
-		handleLeaveRoom(message, conn)
+		handleLeaveRoom(message, conn, connReader)
 	} else if strings.HasPrefix(message, "CHAT:") {
-		handleChat(message, conn)
+		handleChat(message, conn, connReader)
 	} else if strings.HasPrefix(message, "DISCONNECT:") {
-		handleDisconnect(message, conn)
+		handleDisconnect(message, conn, connReader)
 	} else {
-		handleDefault()
+		handleDefault(message, conn)
 	}
 }
 
-func handleJoinRoom(message string, conn net.Conn) bool {
+func handleJoinRoom(message string, conn net.Conn, connReader *bufio.Reader) bool {
 	status := true
 	chatRoom := strings.TrimPrefix(message, "JOIN_CHATROOM:")
 	chatRoom = strings.TrimSpace(chatRoom)
-	connReader := bufio.NewReader(conn)
 	message, _ = connReader.ReadString('\n')
 	clientIP := ""
 	if strings.HasPrefix(message, "CLIENT_IP:") && status {
@@ -156,11 +155,10 @@ func handleJoinRoom(message string, conn net.Conn) bool {
 	return status
 }
 
-func handleLeaveRoom(message string, conn net.Conn) bool {
+func handleLeaveRoom(message string, conn net.Conn, connReader *bufio.Reader) bool {
 	status := true
 	roomID := strings.TrimPrefix(message, "LEAVE_CHATROOM:")
 	roomID = strings.TrimSpace(roomID)
-	connReader := bufio.NewReader(conn)
 	message, _ = connReader.ReadString('\n')
 	clientID := ""
 	if strings.HasPrefix(message, "JOIN_ID:") && status {
@@ -191,11 +189,10 @@ func handleLeaveRoom(message string, conn net.Conn) bool {
 	return status
 }
 
-func handleChat(message string, conn net.Conn) bool {
+func handleChat(message string, conn net.Conn, connReader *bufio.Reader) bool {
 	status := true
 	roomID := strings.TrimPrefix(message, "CHAT:")
 	roomID = strings.TrimSpace(roomID)
-	connReader := bufio.NewReader(conn)
 	message, _ = connReader.ReadString('\n')
 	clientID := ""
 	if strings.HasPrefix(message, "JOIN_ID:") && status {
@@ -219,10 +216,11 @@ func handleChat(message string, conn net.Conn) bool {
 		message, _ = connReader.ReadString('\n')
 		message = strings.TrimSpace(message)
 		for message != "" {
-			text += message
+			text += message + "\n"
 			message, _ = connReader.ReadString('\n')
 			message = strings.TrimSpace(message)
 		}
+		text = strings.TrimSpace(text)
 	} else {
 		status = false
 	}
@@ -234,11 +232,10 @@ func handleChat(message string, conn net.Conn) bool {
 	return status
 }
 
-func handleDisconnect(message string, conn net.Conn) bool {
+func handleDisconnect(message string, conn net.Conn, connReader *bufio.Reader) bool {
 	status := true
 	clientIP := strings.TrimPrefix(message, "DISCONNECT:")
 	clientIP = strings.TrimSpace(clientIP)
-	connReader := bufio.NewReader(conn)
 	message, _ = connReader.ReadString('\n')
 	clientPort := ""
 	if strings.HasPrefix(message, "PORT:") && status {
@@ -271,7 +268,10 @@ func handleDisconnect(message string, conn net.Conn) bool {
 	return status
 }
 
-func handleDefault() bool {
-	fmt.Println("No such command")
+func handleDefault(message string, conn net.Conn) bool {
+	if message != "" {
+		fmt.Println("No such command: "+message)
+		fmt.Fprintf(conn, "No such command: "+message)
+	}
 	return false
 }

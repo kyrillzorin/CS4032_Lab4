@@ -111,8 +111,8 @@ func main() {
 }
 
 func handleRequest(conn net.Conn) {
+	connReader := bufio.NewReader(conn)
 	for true {
-		connReader := bufio.NewReader(conn)
 		message, _ := connReader.ReadString('\n')
 		message = strings.TrimSpace(message)
 		response := ""
@@ -121,17 +121,19 @@ func handleRequest(conn net.Conn) {
 			text = strings.TrimSpace(text)
 			response = HELO(text)
 		} else if message == "KILL_SERVICE" {
-			killService()
+			killService(conn)
 		} else {
-			handleClient(message, conn)
+			handleClient(message, conn, connReader)
 		}
 		if response != "" {
 			fmt.Fprintf(conn, response)
 		}
 	}
+	fmt.Println("lol")
 }
 
-func killService() {
+func killService(conn net.Conn) {
+	conn.Close()
 	for _, client := range Clients {
 		client.Conn.Close()
 	}
@@ -151,8 +153,9 @@ func getIP() string {
 }
 
 func getExternalIP() string {
+	e := os.Getenv("CS4032_LAB_4_IP_EXT")
 	resp, err := http.Get("http://myexternalip.com/raw")
-	if err != nil {
+	if (err != nil) || (e == "false") {
 		return IP
 	}
 	defer resp.Body.Close()
