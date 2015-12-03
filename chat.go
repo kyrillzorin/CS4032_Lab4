@@ -271,7 +271,6 @@ func handleDisconnect(message string, conn net.Conn, connReader *bufio.Reader) b
 func handleDefault(message string, conn net.Conn) bool {
 	if message != "" {
 		fmt.Println("No such command: "+message)
-		fmt.Fprintf(conn, "No such command: "+message)
 	}
 	return false
 }
